@@ -113,7 +113,7 @@ def projectM(Mprime,M):
     
     return M_new
 
-def preprocessWords(inputPath,corpusfile,stopwords):
+def preprocessWords(inputPath,corpusfile,stop_words):
     '''
     Parses all files in the inputPath folder and
     returns the word matrix M:DxV of type ndarray(int32).
