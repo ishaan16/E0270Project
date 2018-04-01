@@ -183,7 +183,7 @@ if __name__ =="__main__":
     PTH = "./datafiles/congCorp.lda-c"
     alpha = 0.1
     K = 10
-    M = preprocessWords(pathnames,PTH,stopwords)
+    M = preprocessWords(pathnames,PTH,stop_words)
     eta,gamma,phisp,beta=findVariationalParams(M,PTH,alpha,K)
     t1=time.time()
     print ("Time taken = %f"%(t1-t0))
