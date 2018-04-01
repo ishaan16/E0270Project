@@ -7,7 +7,7 @@ import numpy as np
 import scipy.sparse as sp
 import os
 import time
-def findVariationalParams(M,datapath,alpha,K):
+def findVariationalParams(M,datapath,param,alpha,K):
     ''' 
     Function to determine the variational parameters
     Input: 
@@ -31,23 +31,21 @@ def findVariationalParams(M,datapath,alpha,K):
     gamma = np.ones((D,K))
     phi = np.ones((D,V,K))
     ################### CODE HERE #######################
-    path = "lda-c/"
-    param  = "param"
+    c_code = "lda-c/"
     cmd1 = "rm -r "+param
     # Ignore the os error that will come when no such file exists
     cmd2 = "mkdir "+param
-    cmd3 = path+"lda est "+str(alpha)+" "+ str(K) +" "+ path + \
-          "settings.txt " + datapath + " random" + " ./" \
-          + param
+    cmd3 = c_code+"lda est "+str(alpha)+" "+ str(K) +" "+ c_code + \
+          "settings.txt " + datapath + " random " + param
     os.system(cmd1)
     os.system(cmd2)
     os.system(cmd3)
     print("Reading phi")
-    phi = np.loadtxt("param/final.phi").reshape(D,V,K)
+    phi = np.loadtxt(param+"/final.phi").reshape(D,V,K)
     print("Reading gamma")
-    gamma = np.loadtxt("param/final.gamma")
+    gamma = np.loadtxt(param+"/final.gamma")
     print("Reading beta")
-    beta = np.loadtxt("param/final.beta")
+    beta = np.loadtxt(param+"/final.beta")
     print ("Building eta")
     for v in xrange(V):
         s=np.zeros((K,))
@@ -174,18 +172,22 @@ if __name__ =="__main__":
                    'going','act','gentleman','gentlewoman',
                    'chairman','nay','yea','thank']
     pathnames = ['./convote_v1.1/data_stage_one/'+wor+'/'
-                 for wor in ['development_set','training_set']]
+                 for wor in ['development_set']]#,'training_set']]
     # Use development test(702 docs) only for debugging
     # i.e. Remove 'training set' from wor in pathnames
-    os.system("rm -r datafiles")
+    pth = "/Users/ishaan/MLPdatafiles"
+    # Create a path where you want to keep your output files
+    os.system("rm -r "+pth)
     # Ignore the os error that will come when no such file exists
-    os.system("mkdir datafiles")
-    PTH = "./datafiles/congCorp.lda-c"
+    os.system("mkdir "+pth)
+    corpFile = pth+"/congCorp.lda-c"
+    paramFolder = pth +"/param" 
     alpha = 0.1
     K = 10
-    M = preprocessWords(pathnames,PTH,stop_words)
-    eta,gamma,phisp,beta=findVariationalParams(M,PTH,alpha,K)
+    M = preprocessWords(pathnames,corpFile,stop_words)
+    eta,gamma,phisp,beta=findVariationalParams(M,corpFile,
+                                               paramFolder,alpha,K)
     t1=time.time()
-    print ("Time taken = %f"%(t1-t0))
+    print ("Time taken = %f sec"%(t1-t0))
     
 
