@@ -4,7 +4,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import numpy as np
-import scipy.sparse as sp
+import sparse as sp
 import os
 import time
 def findVariationalParams(M,datapath,param,alpha,K):
@@ -41,21 +41,14 @@ def findVariationalParams(M,datapath,param,alpha,K):
     os.system(cmd2)
     os.system(cmd3)
     print("Reading phi")
-    phi = np.loadtxt(param+"/final.phi").reshape(D,V,K)
+    p = np.loadtxt(param+"/final.phi")
+    coords = np.int32(p.T[0:-1,:])
+    phi = sp.COO(coords,p[:,-1],shape=(D,V,K))
     print("Reading gamma")
     gamma = np.loadtxt(param+"/final.gamma")
-    print("Reading beta")
-    beta = np.loadtxt(param+"/final.beta")
-    print ("Building eta")
-    for v in xrange(V):
-        s=np.zeros((K,))
-        for d in xrange(D):
-            s+=M[d,v]*phi.T[:,v,d]
-        eta[:,v] = beta[:,v] + s
-    phisp = sp.csr_matrix(phi.reshape(D*V,K))
-    #Use phisp preferably for operations
-    #Usage phi[d,v,k]=phisp[d*V+v,k]
-    return eta,gamma,phisp,beta
+    print("Reading eta")
+    eta = np.loadtxt(param+"/final.beta")
+    return eta,gamma,phi
 
 def findL2RiskGrad(eta,phi,ptarget):
     '''
@@ -121,11 +114,11 @@ def preprocessWords(inputPath,corpusfile,stop_words):
     '''
     porter = PorterStemmer()
     docs,docLen=[],0
-    print("Reading data from %s"%inputPath)
     for path in inputPath:
+        print("Reading data from %s"%path)
         for filename in os.listdir(path):
             with open(path+filename,'r') as inp:
-                print("Reading data from %s"%filename)
+                #print("Reading data from %s"%filename)
                 f=inp.read()
                 words=word_tokenize(f)
                 words = [w.lower() for w in words]
@@ -172,7 +165,7 @@ if __name__ =="__main__":
                    'going','act','gentleman','gentlewoman',
                    'chairman','nay','yea','thank']
     pathnames = ['./convote_v1.1/data_stage_one/'+wor+'/'
-                 for wor in ['development_set']]#,'training_set']]
+                 for wor in ['development_set','training_set']]
     # Use development test(702 docs) only for debugging
     # i.e. Remove 'training set' from wor in pathnames
     pth = "/Users/ishaan/MLPdatafiles"
@@ -185,8 +178,8 @@ if __name__ =="__main__":
     alpha = 0.1
     K = 10
     M = preprocessWords(pathnames,corpFile,stop_words)
-    eta,gamma,phisp,beta=findVariationalParams(M,corpFile,
-                                               paramFolder,alpha,K)
+    eta,gamma,phi=findVariationalParams(M,corpFile,
+                                        paramFolder,alpha,K)
     t1=time.time()
     print ("Time taken = %f sec"%(t1-t0))
     
