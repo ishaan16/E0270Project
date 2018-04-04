@@ -53,62 +53,7 @@ def findVariationalParams(M,datapath,param,alpha,K):
     fee = eta/(np.sum(eta,1).reshape(K,1))
     return eta,gamma,phi,fee
 
-def calculateGrad(eta,phi,fee,feestar):
-    '''
-    Computes gradient of L2 risk function
-    Input:
-    eta: KxV float ndarray
-    phi: DxVxK float ndarray
-    fee : KxV float ndarray
-    feestar: KxV float ndarray
-             This is the attacker's desired distribution
-             Column sum = 1 for all rows
-    
-    Method: Use eq. 12,13,15 or combined form (above 17)
-    
-    Output:
-    gradRisk = DxV float ndarray
-    '''
-    D,V,K = phi.shape
-    gradRisk = np.zeros(D,V)
-
-    ################### CODE HERE #######################
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #####################################################
-    
-    return gradRisk
-
-def updateM(gradRisk,M,lam,Ld,L):
-    Mprime = np.zeros(M.shape)
-
-    ################### CODE HERE #######################
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #####################################################
-    
-    return Mprime
-
-def projectM(Mprime,M):
-    M_new = np.zeros(M.shape)
-
-    ################### CODE HERE #######################
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #                                                   #
-    #####################################################
-    
-    return M_new
-
-def preprocessWords(inputPath,corpusfile,stop_words):
+def preprocessWords(inputPath,corpusfile,dcyfile,stop_words):
     '''
     Parses all files in the inputPath folder and
     returns the word matrix M:DxV of type ndarray(int32).
@@ -143,18 +88,26 @@ def preprocessWords(inputPath,corpusfile,stop_words):
     dcy = corpora.Dictionary(docs)
     V = len(dcy)
     print("Total vocabulary size = %d"%V)
-    #dcy.save(os.path.join(TMP,'cong.dict'))
+    dcy.save(dcyfile)
     corpus = [dcy.doc2bow(text) for text in docs]
     corpora.BleiCorpus.serialize(corpusfile,corpus)
     M = matutils.corpus2dense(corpus, num_terms=V, num_docs=D,
                               dtype=np.int32).T
     return M
 
-def runLDA(M,alpha,beta):
+def runLDA(corpusfile,dcyfile,num_topics):
     '''
     Do classical LDA on word matrix M using alpha, beta
     Plot the results
     '''
+    dcy = corpora.Dictionary.load(dcyfile)
+    corpus = corpora.BleiCorpus(corpusfile)
+    tfidf = models.TfidfModel(corpus, normalize=True)
+    tfidf_corpus = tfidf[corpus]
+    tfidf_corpus = corpus  #Remove this line to allow tfidf values
+    lda = models.LdaModel(tfidf_corpus, id2word=dcy, 
+                          num_topics=num_topics)
+    lda.print_topics(num_topics,num_words=20)
     return 0
 
 
@@ -178,11 +131,12 @@ if __name__ =="__main__":
     # Ignore the os error that will come when no such file exists
     os.system("mkdir "+pth)
     corpFile = pth+"/congCorp.lda-c"
+    dcyFile = pth+"/cong.dict"
     paramFolder = pth +"/param" 
     alpha = 0.1
     K = 10
-    M = preprocessWords(pathnames,corpFile,stop_words)
-
+    M = preprocessWords(pathnames,corpFile,dcyFile,stop_words)
+    runLDA(corpFile,dcyFile,K)
     eta,gamma,phi,fee=findVariationalParams(M,corpFile,
                                             paramFolder,alpha,K)
     D,V,K = phi.shape
@@ -211,12 +165,11 @@ if __name__ =="__main__":
         it+=1
         M_new = outer.update(eta,phi,feestar,M_0,M)
         print('Iteration %d complete'%it)
-
-    # vanilla LDA is still left to be done here.
-    # Actually you should change
-    # phi_star properly to see if everything works fine
-
     M_final = outer.project_to_int(M)
+    corpus = matutils.Dense2Corpus(M_final,
+                                   documents_columns=False)
+    corpora.BleiCorpus.serialize(corpFile,corpus)
+    runLDA(corpFile,dcyFile,K)
     t1=time.time()
     print ("Time taken = %f sec"%(t1-t0))
     
