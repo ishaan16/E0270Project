@@ -1,3 +1,4 @@
+import outer_optimization as outer
 from gensim import corpora, models, similarities,matutils
 import string
 from nltk.tokenize import word_tokenize
@@ -48,15 +49,18 @@ def findVariationalParams(M,datapath,param,alpha,K):
     gamma = np.loadtxt(param+"/final.gamma")
     print("Reading eta")
     eta = np.loadtxt(param+"/final.beta")
-    return eta,gamma,phi
+    print("Estimating fee")
+    fee = eta/(np.sum(eta,1).reshape(K,1))
+    return eta,gamma,phi,fee
 
-def findL2RiskGrad(eta,phi,ptarget):
+def calculateGrad(eta,phi,fee,feestar):
     '''
     Computes gradient of L2 risk function
     Input:
     eta: KxV float ndarray
     phi: DxVxK float ndarray
-    ptarget: KxV float ndarray
+    fee : KxV float ndarray
+    feestar: KxV float ndarray
              This is the attacker's desired distribution
              Column sum = 1 for all rows
     
@@ -78,7 +82,7 @@ def findL2RiskGrad(eta,phi,ptarget):
     
     return gradRisk
 
-def updateM(gradRisk,M,lam):
+def updateM(gradRisk,M,lam,Ld,L):
     Mprime = np.zeros(M.shape)
 
     ################### CODE HERE #######################
@@ -165,7 +169,7 @@ if __name__ =="__main__":
                    'going','act','gentleman','gentlewoman',
                    'chairman','nay','yea','thank']
     pathnames = ['./convote_v1.1/data_stage_one/'+wor+'/'
-                 for wor in ['development_set','training_set']]
+                 for wor in ['development_set']]#,'training_set']]
     # Use development test(702 docs) only for debugging
     # i.e. Remove 'training set' from wor in pathnames
     pth = "/Users/ishaan/MLPdatafiles"
@@ -178,8 +182,41 @@ if __name__ =="__main__":
     alpha = 0.1
     K = 10
     M = preprocessWords(pathnames,corpFile,stop_words)
-    eta,gamma,phi=findVariationalParams(M,corpFile,
-                                        paramFolder,alpha,K)
+
+    eta,gamma,phi,fee=findVariationalParams(M,corpFile,
+                                            paramFolder,alpha,K)
+    D,V,K = phi.shape
+    #######################################
+    feestar  = np.zeros(K,V)
+    tmp1 = int(K/2)
+    tmp2 = int(V/2)  
+    feestar[tmp1][tmp2] += 0.2*feestar[tmp1][tmp2+1]
+    feestar[tmp1][tmp2+1] -= 0.2*feestar[tmp1][tmp2+1]
+    ########################################
+    M=M_0
+    #Use fee in outer. My fee calculation is vectorized
+    M_new = outer.update(eta, phi, feestar, M_0, M)
+    it=1
+    print ('Iteration %d complete'%it)
+    while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.01):
+        M = M_new
+        # Made some modifications here
+        # Blei-lda's C code doesn't operate on M but corpus
+        # Hence for each M, a new corpus is written
+        corpus = matutils.Dense2Corpus(M_new,
+                                       documents_columns=False)
+        corpora.BleiCorpus.serialize(corpFile,corpus)
+    	eta,gamma,phi,fee=findVariationalParams\
+                           (M,corpFile,paramFolder,alpha,K)
+        it+=1
+        M_new = outer.update(eta,phi,feestar,M_0,M)
+        print('Iteration %d complete'%it)
+
+    # vanilla LDA is still left to be done here.
+    # Actually you should change
+    # phi_star properly to see if everything works fine
+
+    M_final = outer.project_to_int(M)
     t1=time.time()
     print ("Time taken = %f sec"%(t1-t0))
     
