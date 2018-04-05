@@ -157,16 +157,12 @@ if __name__ =="__main__":
     M_new = outer.update(eta, phi, feestar, M_0, M)
     it=1
     print ('Iteration %d complete'%it)
-    while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.000001):
+    #while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.000001):
+    while(it<=3):
         M = M_new
-        # Made some modifications here
-        # Blei-lda's C code doesn't operate on M but corpus
-        # Hence for each M, a new corpus is written
-        corpus = matutils.Dense2Corpus(M_new,
-                                       documents_columns=False)
+        corpus = matutils.Dense2Corpus(M,documents_columns=False)
         corpora.BleiCorpus.serialize(corpFile,corpus)
-    	eta,gamma,phi,fee=findVariationalParams\
-                           (M,corpFile,paramFolder,alpha,K)
+    	eta,gamma,phi,fee=findVariationalParams(M,corpFile,paramFolder,alpha,K)
         it+=1
         M_new = outer.update(eta,phi,feestar,M_0,M)
         print('Iteration %d complete'%it)
