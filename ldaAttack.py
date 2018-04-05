@@ -100,14 +100,16 @@ def runLDA(corpusfile,dcyfile,num_topics):
     Do classical LDA on word matrix M using alpha, beta
     Plot the results
     '''
+    print("Running Vanilla LDA on current M")
     dcy = corpora.Dictionary.load(dcyfile)
+    print(dcy)
     corpus = corpora.BleiCorpus(corpusfile)
-    tfidf = models.TfidfModel(corpus, normalize=True)
-    tfidf_corpus = tfidf[corpus]
+    #tfidf = models.TfidfModel(corpus, normalize=True)
+    #tfidf_corpus = tfidf[corpus]
     tfidf_corpus = corpus  #Remove this line to allow tfidf values
     lda = models.LdaModel(tfidf_corpus, id2word=dcy, 
                           num_topics=num_topics)
-    lda.print_topics(num_topics,num_words=20)
+    print(lda.print_topics(3,num_words=10))
     return 0
 
 
@@ -135,24 +137,27 @@ if __name__ =="__main__":
     paramFolder = pth +"/param" 
     alpha = 0.1
     K = 10
-    M = preprocessWords(pathnames,corpFile,dcyFile,stop_words)
+    M_0 = preprocessWords(pathnames,corpFile,dcyFile,stop_words)
     runLDA(corpFile,dcyFile,K)
-    eta,gamma,phi,fee=findVariationalParams(M,corpFile,
+    eta,gamma,phi,fee=findVariationalParams(M_0,corpFile,
                                             paramFolder,alpha,K)
     D,V,K = phi.shape
     #######################################
-    feestar  = np.zeros(K,V)
+    feestar=np.copy(fee)
     tmp1 = int(K/2)
     tmp2 = int(V/2)  
-    feestar[tmp1][tmp2] += 0.2*feestar[tmp1][tmp2+1]
-    feestar[tmp1][tmp2+1] -= 0.2*feestar[tmp1][tmp2+1]
+    rem = 0.0    
+    for v in range(V):
+        if v == tmp2 : continue
+        rem += 0.1*feestar[tmp1][v]
+        feestar[tmp1][v] -= 0.1*feestar[tmp1][v]
+    feestar[tmp1][tmp2] += rem
     ########################################
     M=M_0
-    #Use fee in outer. My fee calculation is vectorized
     M_new = outer.update(eta, phi, feestar, M_0, M)
     it=1
     print ('Iteration %d complete'%it)
-    while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.01):
+    while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.000001):
         M = M_new
         # Made some modifications here
         # Blei-lda's C code doesn't operate on M but corpus

@@ -1,4 +1,5 @@
 import numpy as np
+import sparse as sp
 
 def project_to_int( M_new):
 	# this only projects to integer matrix and returns the matrix
@@ -11,7 +12,7 @@ def project_to_int( M_new):
         for d in range(D):
             diff += M_new[d][v] - int(M_new[d][v])
             vals_index[d][0] = M_new[d][v]
-            vals_index[d][i] = d
+            vals_index[d][1] = d
 
         vals_index = sorted(vals_index, key=lambda a:a[0], reverse = False)
         
@@ -35,16 +36,17 @@ def calcGradient(eta, capital_phi, phi_star):
             eta_sum[k] += eta[k][v]
 
     M_grad = np.zeros((D,V))
-    print('Gradient Calculation started')
-    for d in range(D):
-        print('Document ' + str(d) + ' done')
-        for v in range(V):
-            m_sum = 0.0
-            for k in range(K):
-                phi_kv = eta[k][v]/eta_sum[k]                
-                m_sum += (phi_kv - phi_star[k][v]) * ((eta_sum[k] - eta[k][v])/eta_sum[k]**2) *  capital_phi[d][v][k]
-           
-            M_grad[d][v] += m_sum
+    d_arr, v_arr, k_arr = capital_phi.coords
+    capital_phi = capital_phi.todense()
+    print('Gradient Calculation started, total Items = ' + str(len(d_arr)))
+   
+    
+    for i in range(len(d_arr)):
+        d,v,k = [d_arr[i], v_arr[i], k_arr[i]]
+        phi_kv = eta[k][v]/eta_sum[k]                
+        M_grad[d][v] += (phi_kv - phi_star[k][v]) * ((eta_sum[k] - eta[k][v])/eta_sum[k]**2) * capital_phi[d, v, k]
+        #if(i%1000 == 0): print('Done ' + str(i))
+        
     print('Gradient Calculated')
 
     return M_grad
@@ -52,23 +54,29 @@ def calcGradient(eta, capital_phi, phi_star):
 
 
 def update(eta, capital_phi, phi_star, M_0, M):
-    
+    D,V,K = capital_phi.shape
     L = 600
     L_d = 10
 
     #projection onto the set M
     M_grad = calcGradient(eta, capital_phi, phi_star)
-
-    learning_rate = (L - np.linalg.norm(M - M_0, 1))/np.linalg.norm(M_grad, 1)
+    
+    norm_1 = np.linalg.norm(M_grad, 1)    
+    learning_rate = 10000
+    print('Norm of gradient: ' + str(norm_1)) 
+    if abs(norm_1)> 0.0001:
+        learning_rate = (L - np.linalg.norm(M - M_0, 1))/norm_1
 
     for d in range(D):
-        temp = (L_d - np.linalg.norm(M[d] - M_0[d], 1))/np.linalg.norm(M_grad[d], 1)
+        norm_1 = np.linalg.norm(M_grad[d], 1)
+        if abs(norm_1)< 0.0001: continue 
+            
+        temp = (L_d - np.linalg.norm(M[d] - M_0[d], 1))/norm_1
         if temp < learning_rate:
             learning_rate = temp
 
-    M -= learning_rate*M_grad
+    return M - (learning_rate*M_grad)
 
-    return M
     
     
     
