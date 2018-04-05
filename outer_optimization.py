@@ -1,0 +1,76 @@
+import numpy as np
+
+def project_to_int( M_new):
+	# this only projects to integer matrix and returns the matrix
+    D,V = M_new.shape
+    M_new_round = np.zeros((D,V))
+    for v in range(V):
+        
+        diff = 0
+        vals_index = [[0.0,0] for d in range(D)]
+        for d in range(D):
+            diff += M_new[d][v] - int(M_new[d][v])
+            vals_index[d][0] = M_new[d][v]
+            vals_index[d][i] = d
+
+        vals_index = sorted(vals_index, key=lambda a:a[0], reverse = False)
+        
+        count=0
+        while(diff>0.0):
+            ind = vals_index[count][1]
+            M_new_round[ind][v] = np.ceil(M_new[ind][v])
+            diff -= (M_new_round[ind][v] - int(M_new[ind][v]))
+            count+=1
+
+    return M_new_round 
+
+
+
+def calcGradient(eta, capital_phi, phi_star):
+    D,V,K = capital_phi.shape
+    eta_sum = [0.0]*K
+    
+    for k in range(K):
+        for v in range(V):
+            eta_sum[k] += eta[k][v]
+
+    M_grad = np.zeros((D,V))
+    print('Gradient Calculation started')
+    for d in range(D):
+        print('Document ' + str(d) + ' done')
+        for v in range(V):
+            m_sum = 0.0
+            for k in range(K):
+                phi_kv = eta[k][v]/eta_sum[k]                
+                m_sum += (phi_kv - phi_star[k][v]) * ((eta_sum[k] - eta[k][v])/eta_sum[k]**2) *  capital_phi[d][v][k]
+           
+            M_grad[d][v] += m_sum
+    print('Gradient Calculated')
+
+    return M_grad
+
+
+
+def update(eta, capital_phi, phi_star, M_0, M):
+    
+    L = 600
+    L_d = 10
+
+    #projection onto the set M
+    M_grad = calcGradient(eta, capital_phi, phi_star)
+
+    learning_rate = (L - np.linalg.norm(M - M_0, 1))/np.linalg.norm(M_grad, 1)
+
+    for d in range(D):
+        temp = (L_d - np.linalg.norm(M[d] - M_0[d], 1))/np.linalg.norm(M_grad[d], 1)
+        if temp < learning_rate:
+            learning_rate = temp
+
+    M -= learning_rate*M_grad
+
+    return M
+    
+    
+    
+
+

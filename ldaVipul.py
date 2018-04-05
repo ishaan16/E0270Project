@@ -1,4 +1,3 @@
-import outer_optimization as outer
 from gensim import corpora, models, similarities,matutils
 import string
 from nltk.tokenize import word_tokenize
@@ -8,6 +7,7 @@ import numpy as np
 import sparse as sp
 import os
 import time
+import outer_optimization as outer
 def findVariationalParams(M,datapath,param,alpha,K):
     ''' 
     Function to determine the variational parameters
@@ -49,11 +49,10 @@ def findVariationalParams(M,datapath,param,alpha,K):
     gamma = np.loadtxt(param+"/final.gamma")
     print("Reading eta")
     eta = np.loadtxt(param+"/final.beta")
-    print("Estimating fee")
-    fee = eta/(np.sum(eta,1).reshape(K,1))
-    return eta,gamma,phi,fee
+    return eta,gamma,phi
 
-def preprocessWords(inputPath,corpusfile,dcyfile,stop_words):
+
+def preprocessWords(inputPath,corpusfile,stop_words):
     '''
     Parses all files in the inputPath folder and
     returns the word matrix M:DxV of type ndarray(int32).
@@ -88,26 +87,18 @@ def preprocessWords(inputPath,corpusfile,dcyfile,stop_words):
     dcy = corpora.Dictionary(docs)
     V = len(dcy)
     print("Total vocabulary size = %d"%V)
-    dcy.save(dcyfile)
+    #dcy.save(os.path.join(TMP,'cong.dict'))
     corpus = [dcy.doc2bow(text) for text in docs]
     corpora.BleiCorpus.serialize(corpusfile,corpus)
     M = matutils.corpus2dense(corpus, num_terms=V, num_docs=D,
                               dtype=np.int32).T
     return M
 
-def runLDA(corpusfile,dcyfile,num_topics):
+def runLDA(M):
     '''
     Do classical LDA on word matrix M using alpha, beta
     Plot the results
     '''
-    dcy = corpora.Dictionary.load(dcyfile)
-    corpus = corpora.BleiCorpus(corpusfile)
-    tfidf = models.TfidfModel(corpus, normalize=True)
-    tfidf_corpus = tfidf[corpus]
-    tfidf_corpus = corpus  #Remove this line to allow tfidf values
-    lda = models.LdaModel(tfidf_corpus, id2word=dcy, 
-                          num_topics=num_topics)
-    lda.print_topics(num_topics,num_words=20)
     return 0
 
 
@@ -122,24 +113,23 @@ if __name__ =="__main__":
                    'going','act','gentleman','gentlewoman',
                    'chairman','nay','yea','thank']
     pathnames = ['./convote_v1.1/data_stage_one/'+wor+'/'
-                 for wor in ['development_set']]#,'training_set']]
+                 for wor in ['development_set']]
     # Use development test(702 docs) only for debugging
     # i.e. Remove 'training set' from wor in pathnames
-    pth = "/Users/ishaan/MLPdatafiles"
+    pth = "/home/vipul/MLP_Outputfiles"
     # Create a path where you want to keep your output files
     os.system("rm -r "+pth)
     # Ignore the os error that will come when no such file exists
     os.system("mkdir "+pth)
     corpFile = pth+"/congCorp.lda-c"
-    dcyFile = pth+"/cong.dict"
     paramFolder = pth +"/param" 
     alpha = 0.1
     K = 10
-    M = preprocessWords(pathnames,corpFile,dcyFile,stop_words)
-    runLDA(corpFile,dcyFile,K)
-    eta,gamma,phi,fee=findVariationalParams(M,corpFile,
-                                            paramFolder,alpha,K)
-    D,V,K = phi.shape
+    M_0 = preprocessWords(pathnames,corpFile,stop_words)
+    eta,gamma,phi,fee=findVariationalParams(M,corpFile,paramFolder,alpha,K)
+
+    #modify feestar here before execution
+D,V,K = phi.shape
     #######################################
     feestar  = np.zeros(K,V)
     tmp1 = int(K/2)
@@ -165,12 +155,12 @@ if __name__ =="__main__":
         it+=1
         M_new = outer.update(eta,phi,feestar,M_0,M)
         print('Iteration %d complete'%it)
+
+    # vanilla LDA is still left to be done here.
+    # Actually you should change
+    # phi_star properly to see if everything works fine
+
     M_final = outer.project_to_int(M)
-    corpus = matutils.Dense2Corpus(M_final,
-                                   documents_columns=False)
-    corpora.BleiCorpus.serialize(corpFile,corpus)
-    runLDA(corpFile,dcyFile,K)
     t1=time.time()
     print ("Time taken = %f sec"%(t1-t0))
     
-
