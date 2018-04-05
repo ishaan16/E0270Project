@@ -159,7 +159,7 @@ if __name__ =="__main__":
     print ('Iteration %d complete'%it)
     #while(np.linalg.norm(M-M_new,1)/np.linalg.norm(M,1)>0.000001):
     while(it<=3):
-        M = M_new
+        M = np.int32(M_new)
         corpus = matutils.Dense2Corpus(M,documents_columns=False)
         corpora.BleiCorpus.serialize(corpFile,corpus)
     	eta,gamma,phi,fee=findVariationalParams(M,corpFile,paramFolder,alpha,K)
